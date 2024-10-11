@@ -1,0 +1,34 @@
+# Virtual environment
+venv/
+ENV/
+Project_env/
+# Dependency directories
+/.venv/
+/dist/
+/build/
+
+# Dependency files
+/*.egg-info/
+*.egg
+*.egg-info
+*.pip
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+/.idea/
+.vscode/
+*.pyc
+*.pyo
+
+# Environment configuration
+.env
+/.env.*
+
+
+
+/images
+/pdfs_for_training
+venv
+
+*.zip
+*.json
