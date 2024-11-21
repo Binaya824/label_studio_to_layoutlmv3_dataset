@@ -3,13 +3,16 @@ import shutil
 import os
 from PIL import Image,ImageFile
 
-dir = "invoce_dataset_label_studio"
-src_dir = 'images'
+dir = "tender_dataset_label_studio"
+src_dir = 'tender_images'
 unique_labels_set = set()
+prev_label = ""
+next_label = ""
+label_count = 0
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-with open('./label_studio_data.json', 'r') as json_file:
+with open('./tender_tesseract_training_file.json', 'r') as json_file:
     data = json.load(json_file)
 
 
@@ -23,6 +26,10 @@ with open('./label_studio_data.json', 'r') as json_file:
         pass
 
     for page_data in data:
+        if "transcription" not in page_data:
+            print("Warning: 'transcription' key not found in page_data.")
+            continue
+        
         for index, transcription in enumerate(page_data["transcription"]):
             if index < len(page_data["label"]):
                 current_label = page_data["label"][index]["labels"][0]
@@ -41,8 +48,32 @@ with open('./label_studio_data.json', 'r') as json_file:
             print("image =====>>>>>>" , image)
 
 
+            label_length = len(page_data["label"])
+
             with open(f'{dir}/{dir}.txt', 'a') as text_file:
-                text_file.write(f"{transcription}\t{current_label}\n")
+                if current_label == "O":
+                    text_file.write(f"{transcription}\tO\n")
+                    prev_label = current_label
+                    label_count = 0  
+                elif current_label == "clause":
+                    text_file.write(f"{transcription}\tS-clause\n")
+                    prev_label = current_label
+                elif prev_label != current_label and label_count == 0:
+                    if (index + 1 < label_length and current_label != page_data["label"][index + 1]["labels"][0] or index == label_length -1):
+                        text_file.write(f"{transcription}\tS-{current_label}\n")
+                    else:
+                        text_file.write(f"{transcription}\tB-{current_label}\n")
+                        label_count +=1 
+                    prev_label = current_label
+                elif prev_label == current_label:
+                    if index + 1 < label_length and current_label == page_data["label"][index + 1]["labels"][0]:
+                        text_file.write(f"{transcription}\tI-{current_label}\n")
+                        label_count += 1
+                    else:
+                        text_file.write(f"{transcription}\tE-{current_label}\n")
+                        label_count = 0
+                    prev_label = current_label
+
 
             with open(f'{dir}/{dir}_box.txt', 'a') as box_text_file:
                 box = page_data["bbox"]
@@ -70,6 +101,22 @@ with open('./label_studio_data.json', 'r') as json_file:
             with open(f'{dir}/{dir}_image.txt' , 'a') as image_text_file:
                 image_text_file.write(f"{transcription}\t{x1} {y1} {x2} {y2}\t{original_width} {original_height}\t{image.replace('.png' , '.jpg')}\n")
 
+
+with open(f'{dir}/{dir}_labels.txt', 'r') as file:
+    labels = [line.strip('\n') for line in file.readlines()]  # Strip newline from each line
+    print("labels ====>", labels)
+
+# Overwrite the file with the formatted labels
+with open(f'{dir}/{dir}_labels.txt', 'w') as new_file:  # Use 'w' to overwrite the file
+    for label in labels:
+        if label != "O":
+            new_file.write(f'B-{label}\n')
+            new_file.write(f'I-{label}\n')
+            new_file.write(f'E-{label}\n')
+            new_file.write(f'S-{label}\n')
+        else:
+            new_file.write(f'{label}\n')
+
 images = os.listdir(src_dir)
 
 for img in images:
@@ -91,4 +138,4 @@ for img in images:
 
 
 shutil.make_archive(dir ,'zip' , dir)
-shutil.rmtree(dir)
+# shutil.rmtree(dir)
